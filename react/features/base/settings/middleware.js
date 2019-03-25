@@ -1,9 +1,12 @@
 // @flow
 
 import { setAudioOnly } from '../conference';
+import { parseURLParams } from '../config';
+import { SET_LOCATION_URL } from '../connection';
 import { getLocalParticipant, participantUpdated } from '../participants';
 import { MiddlewareRegistry } from '../redux';
 
+import { updateSettings } from './actions';
 import { SETTINGS_UPDATED } from './actionTypes';
 
 /**
@@ -18,6 +21,18 @@ MiddlewareRegistry.register(store => next => action => {
     const result = next(action);
 
     switch (action.type) {
+    case SET_LOCATION_URL: {
+        const { dispatch, getState } = store;
+        const devices = _getDevicesFromURL(getState());
+
+        if (devices) {
+            dispatch(updateSettings({
+                ...devices
+            }));
+        }
+
+        break;
+    }
     case SETTINGS_UPDATED:
         _maybeSetAudioOnly(store, action);
         _updateLocalParticipant(store, action);
@@ -82,4 +97,33 @@ function _updateLocalParticipant({ dispatch, getState }, action) {
     }
 
     dispatch(participantUpdated(newLocalParticipant));
+}
+
+/**
+ * Bla bla bla.
+ *
+ * @param {*} state - The redux state.
+ * @returns {Object}
+ */
+function _getDevicesFromURL(state) {
+    const urlParams
+        = parseURLParams(state['features/base/connection'].locationURL);
+
+    console.error(state['features/base/connection']);
+    console.error('Urls params', urlParams);
+    const audioOutputDeviceId = urlParams['devices.audioOutput'];
+    const cameraDeviceId = urlParams['devices.videoInput'];
+    const micDeviceId = urlParams['devices.audioInput'];
+
+    if (!audioOutputDeviceId && !cameraDeviceId && !micDeviceId) {
+        return undefined;
+    }
+
+    const devices = {};
+
+    audioOutputDeviceId && (devices.audioOutputDeviceId = audioOutputDeviceId);
+    cameraDeviceId && (devices.cameraDeviceId = cameraDeviceId);
+    micDeviceId && (devices.micDeviceId = micDeviceId);
+
+    return devices;
 }
